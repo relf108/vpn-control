@@ -1,0 +1,16 @@
+__pycache__/
+.ruff_cache/
+result
+result-*
+.direnv/
+.env
+secrets/
+*.key
+olivetin-users.yaml
+*.conf
+*.pem
+*.pcap
+*.sqlite
+*.db
+.opencode/
+.coverage

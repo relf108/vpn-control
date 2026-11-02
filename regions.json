@@ -1,0 +1,463 @@
+{
+  "source": "https://api.mullvad.net/www/relays/all/",
+  "retrieved": "2026-11-02",
+  "regionCount": 91,
+  "activeWireGuardRelays": 526,
+  "regions": {
+    "al-tia": {
+      "label": "Albania / Tirana (al-tia-wg-001)",
+      "publicKey": "ofyfRvMPB0PPIGGItNL+5tNdvTKXuWye5CfjPgPNvQ8=",
+      "endpoint": "45.142.26.2:51820"
+    },
+    "ar-bue": {
+      "label": "Argentina / Buenos Aires (ar-bue-wg-001)",
+      "publicKey": "1WN0Mqa0Azw7cYYEamHPgHXE8SuylNIG2QobZKOaclA=",
+      "endpoint": "149.22.83.2:51820"
+    },
+    "at-vie": {
+      "label": "Austria / Vienna (at-vie-wg-001)",
+      "publicKey": "GLqlOTVJCyRpJx3vgR3ykTPNJLGKNytHXu61zBWIAls=",
+      "endpoint": "146.70.116.130:51820"
+    },
+    "au-adl": {
+      "label": "Australia / Adelaide (au-adl-wg-301)",
+      "publicKey": "rm2hpBiN91c7reV+cYKlw7QNkYtME/+js7IMyYBB2Aw=",
+      "endpoint": "103.214.20.50:51820"
+    },
+    "au-bne": {
+      "label": "Australia / Brisbane (au-bne-wg-301)",
+      "publicKey": "1H/gj8SVNebAIEGlvMeUVC5Rnf274dfVKbyE+v5G8HA=",
+      "endpoint": "103.216.220.18:51820"
+    },
+    "au-mel": {
+      "label": "Australia / Melbourne (au-mel-wg-401)",
+      "publicKey": "ju0S2nDmiOrSm1H68SRTB4mtt2U8SKROprE83VCoF1Y=",
+      "endpoint": "163.47.16.146:51820"
+    },
+    "au-per": {
+      "label": "Australia / Perth (au-per-wg-301)",
+      "publicKey": "hQXsNk/9R2We0pzP1S9J3oNErEu2CyENlwTdmDUYFhg=",
+      "endpoint": "103.108.231.50:51820"
+    },
+    "au-syd": {
+      "label": "Australia / Sydney (au-syd-wg-001)",
+      "publicKey": "4JpfHBvthTFOhCK0f5HAbzLXAVcB97uAkuLx7E8kqW0=",
+      "endpoint": "146.70.200.2:51820"
+    },
+    "be-bru": {
+      "label": "Belgium / Brussels (be-bru-wg-101)",
+      "publicKey": "GE2WP6hmwVggSvGVWLgq2L10T3WM2VspnUptK5F4B0U=",
+      "endpoint": "91.90.123.2:51820"
+    },
+    "bg-sof": {
+      "label": "Bulgaria / Sofia (bg-sof-wg-001)",
+      "publicKey": "J8KysHmHZWqtrVKKOppneDXSks/PDsB1XTlRHpwiABA=",
+      "endpoint": "146.70.188.130:51820"
+    },
+    "br-for": {
+      "label": "Brazil / Fortaleza (br-for-wg-001)",
+      "publicKey": "CiPqGvrQidRVmKc6T8TORsAAZtQbsGzNEAKyd1iVlWY=",
+      "endpoint": "98.98.12.178:51820"
+    },
+    "br-sao": {
+      "label": "Brazil / Sao Paulo (br-sao-wg-201)",
+      "publicKey": "8c9M6w1BQbgMVr/Zgrj4GwSdU6q3qfQfWs17kMLC9y4=",
+      "endpoint": "169.150.198.66:51820"
+    },
+    "ca-mtr": {
+      "label": "Canada / Montreal (ca-mtr-wg-001)",
+      "publicKey": "TUCaQc26/R6AGpkDUr8A8ytUs/e5+UVlIVujbuBwlzI=",
+      "endpoint": "146.70.198.66:51820"
+    },
+    "ca-tor": {
+      "label": "Canada / Toronto (ca-tor-wg-001)",
+      "publicKey": "HjcUGVDXWdrRkaKNpc/8494RM5eICO6DPyrhCtTv9Ws=",
+      "endpoint": "178.249.214.2:51820"
+    },
+    "ca-van": {
+      "label": "Canada / Vancouver (ca-van-wg-201)",
+      "publicKey": "hYbb2NQKB0g2RefngdHl3bfaLImUuzeVIv2i1VCVIlQ=",
+      "endpoint": "104.193.135.196:51820"
+    },
+    "ca-yyc": {
+      "label": "Canada / Calgary (ca-yyc-wg-201)",
+      "publicKey": "L4RcVwk0cJJp2u8O9+86sdyUpxfYnr+ME57Ex0RY1Wo=",
+      "endpoint": "38.240.225.36:51820"
+    },
+    "ch-zrh": {
+      "label": "Switzerland / Zurich (ch-zrh-wg-001)",
+      "publicKey": "chvEpRH+05o+ESv8QLzNyY3Phirsym0mUvF03Kt7oCo=",
+      "endpoint": "193.32.127.71:51820"
+    },
+    "cl-scl": {
+      "label": "Chile / Santiago (cl-scl-wg-001)",
+      "publicKey": "03qeK7CSn6wcMzfqilmVt6Tf81VZIPWnSG04euSkyxM=",
+      "endpoint": "149.88.104.2:51820"
+    },
+    "co-bog": {
+      "label": "Colombia / Bogota (co-bog-wg-001)",
+      "publicKey": "iaMa84nCHK+v4TnQH4h2rxkqwwxemORXM12VbJDRZSU=",
+      "endpoint": "154.47.16.34:51820"
+    },
+    "cy-nic": {
+      "label": "Cyprus / Nicosia (cy-nic-wg-001)",
+      "publicKey": "Ae9YcQjcQT+W8MU0EhKXx6KPWo6ticS1NI91e+Zy5GA=",
+      "endpoint": "195.47.194.131:51820"
+    },
+    "cz-prg": {
+      "label": "Czech Republic / Prague (cz-prg-wg-101)",
+      "publicKey": "JVy0QF6Vqe4KsNkKo35g9tgtsyFwkZ+LSPZ6tsMnlXk=",
+      "endpoint": "135.136.123.130:51820"
+    },
+    "de-ber": {
+      "label": "Germany / Berlin (de-ber-wg-001)",
+      "publicKey": "0qSP0VxoIhEhRK+fAHVvmfRdjPs2DmmpOCNLFP/7cGw=",
+      "endpoint": "193.32.248.66:51820"
+    },
+    "de-dus": {
+      "label": "Germany / Dusseldorf (de-dus-wg-101)",
+      "publicKey": "tX1zfo0TPh0pX1ALF9d5S7O1UjMtDWcT4/RXZ6cTJGw=",
+      "endpoint": "80.66.197.3:51820"
+    },
+    "de-fra": {
+      "label": "Germany / Frankfurt (de-fra-wg-001)",
+      "publicKey": "HQHCrq4J6bSpdW1fI5hR/bvcrYa6HgGgwaa5ZY749ik=",
+      "endpoint": "185.213.155.73:51820"
+    },
+    "dk-cph": {
+      "label": "Denmark / Copenhagen (dk-cph-wg-001)",
+      "publicKey": "egl+0TkpFU39F5O6r6+hIBMPQLOa8/t5CymOZV6CC3Y=",
+      "endpoint": "45.129.56.67:51820"
+    },
+    "ee-tll": {
+      "label": "Estonia / Tallinn (ee-tll-wg-101)",
+      "publicKey": "Abxw9kZlH8Stt7mWJ2rKeCQjVVdJpLvV6czby23FzmA=",
+      "endpoint": "213.232.112.3:51820"
+    },
+    "es-bcn": {
+      "label": "Spain / Barcelona (es-bcn-wg-001)",
+      "publicKey": "asbfbY0oP07dBdmVNDSuO3o5rbkGnR56PkXTGXO7YFg=",
+      "endpoint": "185.188.61.195:51820"
+    },
+    "es-mad": {
+      "label": "Spain / Madrid (es-mad-wg-101)",
+      "publicKey": "oPpPeyiQhUYqtOxwR387dmFfII8OK5LX2RPyns1rx2U=",
+      "endpoint": "45.134.213.194:51820"
+    },
+    "es-vlc": {
+      "label": "Spain / Valencia (es-vlc-wg-001)",
+      "publicKey": "aEObX8ThiHcN/Y40UqY8dXaGMJsVQUWhrEphbpuQRkw=",
+      "endpoint": "193.19.207.195:51820"
+    },
+    "fi-hel": {
+      "label": "Finland / Helsinki (fi-hel-wg-002)",
+      "publicKey": "8BbP3GS01dGkN5ENk1Rgedxfd80friyVOABrdMgD3EY=",
+      "endpoint": "185.204.1.211:51820"
+    },
+    "fr-bod": {
+      "label": "France / Bordeaux (fr-bod-wg-001)",
+      "publicKey": "y6dcYS7MPeApbLoWLahjku5w5cufnNkwHzj1iwDPpS0=",
+      "endpoint": "45.134.79.67:51820"
+    },
+    "fr-mrs": {
+      "label": "France / Marseille (fr-mrs-wg-001)",
+      "publicKey": "MOk2OTDEaFFN4vsCAgf+qQi6IlY99nCeDEzpXyo65wg=",
+      "endpoint": "138.199.15.162:51820"
+    },
+    "fr-par": {
+      "label": "France / Paris (fr-par-wg-001)",
+      "publicKey": "ov323GyDOEHLT0sNRUUPYiE3BkvFDjpmi1a4fzv49hE=",
+      "endpoint": "193.32.126.66:51820"
+    },
+    "gb-glw": {
+      "label": "UK / Glasgow (gb-glw-wg-001)",
+      "publicKey": "xCPSxGj0QVKC637D8HpRsUUCaSfgAF4ephG/CjhQ2kU=",
+      "endpoint": "185.201.188.3:51820"
+    },
+    "gb-lon": {
+      "label": "UK / London (gb-lon-wg-001)",
+      "publicKey": "IJJe0TQtuQOyemL4IZn6oHEsMKSPqOuLfD5HoAWEPTY=",
+      "endpoint": "141.98.252.67:51820"
+    },
+    "gb-mnc": {
+      "label": "UK / Manchester (gb-mnc-wg-001)",
+      "publicKey": "Q2khJLbTSFxmppPGHgq2HdxMQx7CczPZCgVpYZMoNnM=",
+      "endpoint": "146.70.132.2:51820"
+    },
+    "gr-ath": {
+      "label": "Greece / Athens (gr-ath-wg-101)",
+      "publicKey": "li+thkAD7s6IZDgUoiKw4YSjM/U1q203PuthMzIJIU0=",
+      "endpoint": "149.102.246.2:51820"
+    },
+    "hk-hkg": {
+      "label": "Hong Kong / Hong Kong (hk-hkg-wg-201)",
+      "publicKey": "Oxh13dmwY6nNUa5rVHr7sLiFOj0fjzsaAUAUV87/nGs=",
+      "endpoint": "103.125.233.18:51820"
+    },
+    "hr-zag": {
+      "label": "Croatia / Zagreb (hr-zag-wg-001)",
+      "publicKey": "PJvsgLogdAgZiVSxwTDyk9ri02mLZGuElklHShIjDGM=",
+      "endpoint": "154.47.29.2:51820"
+    },
+    "hu-bud": {
+      "label": "Hungary / Budapest (hu-bud-wg-101)",
+      "publicKey": "u+h0GmQJ8UBaMTi2BP9Ls6UUszcGC51y6vTmNr/y+AU=",
+      "endpoint": "146.70.196.194:51820"
+    },
+    "id-jpu": {
+      "label": "Indonesia / Jakarta (id-jpu-wg-001)",
+      "publicKey": "XYQvOrRqu8j521Hy/8+jGRDLZoSAssOvCectyKz350Y=",
+      "endpoint": "129.227.46.130:51820"
+    },
+    "ie-dub": {
+      "label": "Ireland / Dublin (ie-dub-wg-101)",
+      "publicKey": "2r0vPpM71ZXpseWXTXw3iwn2sjIHOTpw1V9sp03bLWw=",
+      "endpoint": "146.70.189.2:51820"
+    },
+    "il-tlv": {
+      "label": "Israel / Tel Aviv (il-tlv-wg-101)",
+      "publicKey": "XOedjVJaT2IrEDJbzvtZeL4hP5uPRHzFxvD1cwVwUFo=",
+      "endpoint": "169.150.227.197:51820"
+    },
+    "it-mil": {
+      "label": "Italy / Milan (it-mil-wg-001)",
+      "publicKey": "Sa9fFFthvihGMO4cPExJ7ZaWSHNYoXmOqZMvJsaxOVk=",
+      "endpoint": "178.249.211.66:51820"
+    },
+    "it-pmo": {
+      "label": "Italy / Palermo (it-pmo-wg-001)",
+      "publicKey": "cE6s9wV8jfAa84sgXWJ5C4d769m5Ki/XA3rxPdMWhVw=",
+      "endpoint": "149.22.91.66:51820"
+    },
+    "jp-osa": {
+      "label": "Japan / Osaka (jp-osa-wg-101)",
+      "publicKey": "qdFG9butVjZdtGFeQHuNftvf6ZmISf2J+v167rcPDU4=",
+      "endpoint": "194.127.166.2:51820"
+    },
+    "jp-tyo": {
+      "label": "Japan / Tokyo (jp-tyo-wg-001)",
+      "publicKey": "AUo2zhQ0wCDy3/jmZgOe4QMncWWqrdME7BbY2UlkgyI=",
+      "endpoint": "138.199.21.239:51820"
+    },
+    "mx-qro": {
+      "label": "Mexico / Queretaro (mx-qro-wg-001)",
+      "publicKey": "yxyntWsANEwxeR0pOPNAcfWY7zEVICZe9G+GxortzEY=",
+      "endpoint": "149.88.22.129:51820"
+    },
+    "my-kul": {
+      "label": "Malaysia / Kuala Lumpur (my-kul-wg-001)",
+      "publicKey": "RnwTFcAl6z4UfXio9ApLqlOjBcYvD0gWG0htl6fiCl4=",
+      "endpoint": "98.98.47.130:51820"
+    },
+    "ng-los": {
+      "label": "Nigeria / Lagos (ng-los-wg-001)",
+      "publicKey": "nlpbIResE9vYypA9M/tKvfbUamsmCSawTqmq0cbVJjw=",
+      "endpoint": "79.127.149.130:51820"
+    },
+    "nl-ams": {
+      "label": "Netherlands / Amsterdam (nl-ams-wg-004)",
+      "publicKey": "hnRyse6QxPPcZOoSwRsHUtK1W+APWXnIoaDTmH6JsHQ=",
+      "endpoint": "193.32.249.69:51820"
+    },
+    "no-osl": {
+      "label": "Norway / Oslo (no-osl-wg-001)",
+      "publicKey": "jOUZjMq2PWHDzQxu3jPXktYB7EKeFwBzGZx56cTXXQg=",
+      "endpoint": "176.125.235.71:51820"
+    },
+    "no-svg": {
+      "label": "Norway / Stavanger (no-svg-wg-001)",
+      "publicKey": "kduYoE/b1mA2Pjszx1CzE4Lktsdc2zsUU8Relul2m2U=",
+      "endpoint": "194.127.199.2:51820"
+    },
+    "nz-akl": {
+      "label": "New Zealand / Auckland (nz-akl-wg-301)",
+      "publicKey": "BOEOP01bcND1a0zvmOxRHPB/ObgjgPIzBJE5wbm7B0M=",
+      "endpoint": "103.75.11.50:51820"
+    },
+    "pe-lim": {
+      "label": "Peru / Lima (pe-lim-wg-001)",
+      "publicKey": "S4j4wshSstg9Au6ewFWr9vsZ8giovGPpKbKehXN8Nwc=",
+      "endpoint": "95.173.223.130:51820"
+    },
+    "ph-mnl": {
+      "label": "Philippines / Manila (ph-mnl-wg-001)",
+      "publicKey": "hORxMf/YMmN2/8VWOnTCdgGzGfEyXUEQQ5EBfoCyFDM=",
+      "endpoint": "129.227.118.162:51820"
+    },
+    "pl-waw": {
+      "label": "Poland / Warsaw (pl-waw-wg-101)",
+      "publicKey": "fO4beJGkKZxosCZz1qunktieuPyzPnEVKVQNhzanjnA=",
+      "endpoint": "45.134.212.66:51820"
+    },
+    "pt-lis": {
+      "label": "Portugal / Lisbon (pt-lis-wg-201)",
+      "publicKey": "JCAe7D/owe11Ii2rhpIKhGZvP/V1P1cVZwZAjpSRqmc=",
+      "endpoint": "149.88.20.206:51820"
+    },
+    "ro-buh": {
+      "label": "Romania / Bucharest (ro-buh-wg-011)",
+      "publicKey": "GXMzYnE3HXLneV+gZVFFN5W4lKFfVrGUBoPxjHv0ZD4=",
+      "endpoint": "37.120.246.130:51820"
+    },
+    "rs-beg": {
+      "label": "Serbia / Belgrade (rs-beg-wg-101)",
+      "publicKey": "Orrce1127WpljZa+xKbF21zJkJ9wM1M3VJ5GJ/UsIDU=",
+      "endpoint": "146.70.193.2:51820"
+    },
+    "se-got": {
+      "label": "Sweden / Gothenburg (se-got-wg-001)",
+      "publicKey": "5JMPeO7gXIbR5CnUa/NPNK4L5GqUnreF0/Bozai4pl4=",
+      "endpoint": "185.213.154.66:51820"
+    },
+    "se-mma": {
+      "label": "Sweden / Malmö (se-mma-wg-001)",
+      "publicKey": "Qn1QaXYTJJSmJSMw18CGdnFiVM0/Gj/15OdkxbXCSG0=",
+      "endpoint": "193.138.218.220:51820"
+    },
+    "se-sto": {
+      "label": "Sweden / Stockholm (se-sto-wg-001)",
+      "publicKey": "MkP/Jytkg51/Y/EostONjIN6YaFRpsAYiNKMX27/CAY=",
+      "endpoint": "185.195.233.76:51820"
+    },
+    "sg-sin": {
+      "label": "Singapore / Singapore (sg-sin-wg-001)",
+      "publicKey": "sFHv/qzG7b6ds5pow+oAR3G5Wqp9eFbBD3BmEGBuUWU=",
+      "endpoint": "138.199.60.2:51820"
+    },
+    "si-lju": {
+      "label": "Slovenia / Ljubljana (si-lju-wg-001)",
+      "publicKey": "fXWKnogYH3IORGePtkyFg3r/56ZQGkF6hjdw2svhmw8=",
+      "endpoint": "93.115.0.3:51820"
+    },
+    "sk-bts": {
+      "label": "Slovakia / Bratislava (sk-bts-wg-001)",
+      "publicKey": "QEVIaIycN8p5twXCuZeQTEj9utozakw/MU8H6+/whls=",
+      "endpoint": "138.199.34.129:51820"
+    },
+    "th-bkk": {
+      "label": "Thailand / Bangkok (th-bkk-wg-001)",
+      "publicKey": "zX6pm3TVJe7rjQ9GrFH1IY29vw/PJL6LGh3/ALxEyx4=",
+      "endpoint": "156.59.50.194:51820"
+    },
+    "tr-ist": {
+      "label": "Turkey / Istanbul (tr-ist-wg-001)",
+      "publicKey": "jPhK/ziQfJ1Z5GCPj+qR3A7YV2mIQSQtEPCRuG7TUW8=",
+      "endpoint": "149.102.229.129:51820"
+    },
+    "ua-iev": {
+      "label": "Ukraine / Kyiv (ua-iev-wg-001)",
+      "publicKey": "PO2o3ewguPP24wLy8bbDqx1xuAnTOIVzdzVGVT0d8kU=",
+      "endpoint": "149.102.240.79:51820"
+    },
+    "us-atl": {
+      "label": "USA / Atlanta, GA (us-atl-wg-001)",
+      "publicKey": "nvyBkaEXHwyPBAm8spGB0TFzf2W5wPAl8EEuJ0t+bzs=",
+      "endpoint": "45.134.140.130:51820"
+    },
+    "us-bos": {
+      "label": "USA / Boston, MA (us-bos-wg-001)",
+      "publicKey": "CsysTnZ0HvyYRjsKMPx60JIgy777JhD0h9WpbHbV83o=",
+      "endpoint": "43.225.189.131:51820"
+    },
+    "us-chi": {
+      "label": "USA / Chicago, IL (us-chi-wg-201)",
+      "publicKey": "+Xx2mJnoJ+JS11Z6g8mp6aUZV7p6DAN9ZTAzPaHakhM=",
+      "endpoint": "87.249.134.1:51820"
+    },
+    "us-dal": {
+      "label": "USA / Dallas, TX (us-dal-wg-001)",
+      "publicKey": "EAzbWMQXxJGsd8j2brhYerGB3t5cPOXqdIDFspDGSng=",
+      "endpoint": "146.70.211.66:51820"
+    },
+    "us-den": {
+      "label": "USA / Denver, CO (us-den-wg-101)",
+      "publicKey": "74U+9EQrMwVOafgXuSp8eaKG0+p4zjSsDe3J7+ojhx0=",
+      "endpoint": "37.19.210.1:51820"
+    },
+    "us-det": {
+      "label": "USA / Detroit, MI (us-det-wg-001)",
+      "publicKey": "+USmlxhnLmlNkDnBbu+rXwjUwa383e0ilYEqPkEkNHA=",
+      "endpoint": "185.141.119.131:51820"
+    },
+    "us-hou": {
+      "label": "USA / Houston, TX (us-hou-wg-001)",
+      "publicKey": "NKscQ4mm24nsYWfpL85Cve+BKIExR0JaysldUtVSlzg=",
+      "endpoint": "37.19.221.130:51820"
+    },
+    "us-lax": {
+      "label": "USA / Los Angeles, CA (us-lax-wg-001)",
+      "publicKey": "zqsfGglzJPY657WMRxf/S4omG7+ZkSDIpDq+ggbc9yo=",
+      "endpoint": "23.234.72.2:51820"
+    },
+    "us-mia": {
+      "label": "USA / Miami, FL (us-mia-wg-001)",
+      "publicKey": "FVEKAMJqaJU2AwWn5Mg9TK9IAfJc4XDUmSzEeC/VXGs=",
+      "endpoint": "45.134.142.219:51820"
+    },
+    "us-mkc": {
+      "label": "USA / Kansas City, MO (us-mkc-wg-001)",
+      "publicKey": "0EwMQYJ2uo6xu0C3lOEfsxMdc4NpFOURVc0JPJqkhlI=",
+      "endpoint": "23.234.116.3:51820"
+    },
+    "us-nyc": {
+      "label": "USA / New York, NY (us-nyc-wg-001)",
+      "publicKey": "8kBm0P9xz3cXVn3so1czm5mLv0dEcrM6vFCOlozQ7Hk=",
+      "endpoint": "23.165.56.3:51820"
+    },
+    "us-phx": {
+      "label": "USA / Phoenix, AZ (us-phx-wg-201)",
+      "publicKey": "8mie5kslgD63v3pZkbFmwGdj3dg5mu8Wm2Ji5kntfXA=",
+      "endpoint": "23.234.88.3:51820"
+    },
+    "us-qas": {
+      "label": "USA / Ashburn, VA (us-qas-wg-101)",
+      "publicKey": "JEuuPzZE8uE53OFhd3YFiZuwwANLqwmdXWMHPUbBwnk=",
+      "endpoint": "185.156.46.130:51820"
+    },
+    "us-rag": {
+      "label": "USA / Raleigh, NC (us-rag-wg-201)",
+      "publicKey": "MuKjekVqBwpSizHLNwVRl4b8bwi6aTCBOshPiOOWrEQ=",
+      "endpoint": "23.234.76.2:51820"
+    },
+    "us-sea": {
+      "label": "USA / Seattle, WA (us-sea-wg-001)",
+      "publicKey": "bZQF7VRDRK/JUJ8L6EFzF/zRw2tsqMRk6FesGtTgsC0=",
+      "endpoint": "138.199.43.91:51820"
+    },
+    "us-sfo": {
+      "label": "USA / San Francisco, CA (us-sfo-wg-001)",
+      "publicKey": "mf/nsPsUZZvssmD8IqZBYda/PoPyD3mZFKEf0NkyynY=",
+      "endpoint": "45.153.102.3:51820"
+    },
+    "us-sjc": {
+      "label": "USA / San Jose, CA (us-sjc-wg-001)",
+      "publicKey": "FGcXuLkvErFPiTPAjtJusTtbCoFkJOK8SXHwWOeNYUM=",
+      "endpoint": "23.144.160.67:51820"
+    },
+    "us-slc": {
+      "label": "USA / Salt Lake City, UT (us-slc-wg-301)",
+      "publicKey": "tA/k8ouzYiVmgCRCF7TWibVzv5xRp3cgv9TJX66poGE=",
+      "endpoint": "23.234.112.3:51820"
+    },
+    "us-txc": {
+      "label": "USA / McAllen, TX (us-txc-wg-001)",
+      "publicKey": "+OCONjBoN5RytiPy000VOzhZsiu1tSzecmc1hl/q8hI=",
+      "endpoint": "79.127.222.194:51820"
+    },
+    "us-uyk": {
+      "label": "USA / Secaucus, NJ (us-uyk-wg-201)",
+      "publicKey": "utm9eFUk8tH0j/dwKLJvlb6BRSfm3GZbomxr52ZDGn0=",
+      "endpoint": "104.36.50.3:51820"
+    },
+    "us-was": {
+      "label": "USA / Washington DC (us-was-wg-001)",
+      "publicKey": "qD3AH8vI8MhEVc9+0+2O8zV0Gx9FfKdy7ri3Bnpzo10=",
+      "endpoint": "185.213.193.3:51820"
+    },
+    "za-jnb": {
+      "label": "South Africa / Johannesburg (za-jnb-wg-001)",
+      "publicKey": "5dOGXJ9JK/Bul0q57jsuvjNnc15gRpSO1rMbxkf4J2M=",
+      "endpoint": "154.47.30.130:51820"
+    }
+  }
+}
