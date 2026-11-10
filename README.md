@@ -101,6 +101,44 @@ SameSite=Strict cookie and an in-memory CSRF token. Sessions expire after eight
 hours, logout revokes them server-side, and API restart invalidates all sessions.
 Five login attempts per minute are allowed globally. Run the supplied single-worker,
 threaded Gunicorn wrapper; do not add workers without shared session/rate-limit state.
+The tested Gunicorn 26 wrapper disables its separate management socket; systemd
+owns process lifecycle, and the HTTP adapter remains unprivileged.
+
+### Optional account-credit expiry
+
+To show when VPN access needs renewing, configure an explicit target-host secret:
+
+```nix
+services.homelab-vpn-control.mullvadAccountFile = "/var/lib/vpn-control/mullvad-account";
+```
+
+Provision that root-owned, mode-0600 file on the target through your secret manager,
+or use the installed hidden-prompt helper:
+
+```sh
+sudo sh -c 'umask 077; vpn-control-account-credential > /var/lib/vpn-control/mullvad-account'
+```
+
+The flake also exports `packages.<system>.account-credential` for `nix run` before
+installation. Restart the API after provisioning/rotating the systemd credential.
+This is the **account number**, not a WireGuard key. Keep it out of Nix values,
+Git, URLs, command arguments, and the frontend. The default `null` disables lookup
+and requires no additional file. Invalid credentials or provider errors never
+change routing, disable privacy guards, or prevent ordinary VPN control requests.
+
+The API reads the optional systemd credential, obtains an in-memory access token,
+and queries Mullvad's account expiry endpoint over verified HTTPS. Redirects and
+environment proxies are disabled. Only expiry/check timestamps and cache state
+leave the API. Successful checks are cached for six hours; failures retry after
+five minutes. A previous expiry remains explicitly marked stale on refresh failure.
+If the provider is unreachable through the current route, lookup fails safely;
+it never enables an ISP bypass to obtain account data.
+
+`GET /api/v1/account` requires login and returns `state` (`available`,
+`notConfigured`, or `unavailable`), `expiry`, `checkedAt`, and `stale`. No account
+ID, account number, or access token is returned. The dashboard shows whole calendar
+years/months/days remaining, with month-end clamping, and opens the fixed Mullvad
+account page in a new tab for top-ups. It never renews automatically or rotates keys.
 
 ### Private HTTPS
 
@@ -157,9 +195,22 @@ python3 -m unittest discover -v
 nix flake check
 ```
 
-Tests use synthetic profiles and credentials, without root or production network
-changes. `network_runtime.py` remains the privileged isolated gateway integration
-harness; legacy `smoke_olivetin.py` is historical and not the current UI test.
+Tests use synthetic profiles and credentials, without production network changes.
+`network_runtime.py` contains the migrated gateway integration harness. Start it
+as an ordinary user: it creates its own user/network namespaces and refuses the
+host network namespace. It validates WireGuard routing, DNS isolation, timed
+bypass expiry and controller failure against the host's public firewall fixture:
+
+```sh
+# Build tests/vpn_gateway_fixture.nix from the server repo with its pinned nixpkgs.
+# Then run from this repository's development shell:
+VPN_GATEWAY_FIXTURE=/nix/store/...-vpn-gateway-fixture.json python3 network_runtime.py
+```
+
+The host needs user namespaces, UID/GID mapping helpers, and the required kernel
+network modules. The fixture contains routing/firewall scripts only, not private
+keys. The obsolete OliveTin smoke test has been removed; the HTTP boundary is
+covered by `test_api_runtime.py` and the Flutter repository owns UI tests.
 Refresh public catalog metadata with `python3 update_catalog.py`, then review the
 diff before deployment. Review staged source before publishing; ignore rules and
 explicit build file sets are guards, not secret scanners.

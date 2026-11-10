@@ -6,8 +6,8 @@ result-*
 .env
 secrets/
 *.key
-olivetin-users.yaml
 api-auth.json
+mullvad-account
 *.conf
 *.pem
 *.pcap

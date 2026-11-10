@@ -30,6 +30,7 @@ let
   );
   apiConfig = pkgs.writeText "vpn-control-api.json" (
     builtins.toJSON {
+      mullvadAccountEnabled = cfg.mullvadAccountFile != null;
       inherit (cfg) publicOrigin configuredRelayTitle relays;
       socket = "${runtime}/control.sock";
     }
@@ -93,6 +94,11 @@ in
       default = "/var/lib/vpn-control/api-auth.json";
       description = "Absolute runtime path to root-owned JSON with username and passwordHash (Argon2id). Passed through systemd LoadCredential, never imported into Nix.";
     };
+    mullvadAccountFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Optional absolute runtime path to a root-owned 0600 file containing the Mullvad account number. Loaded only by the API through systemd credentials for read-only expiry checks. Never a Nix path or store file.";
+    };
     apiPort = lib.mkOption {
       type = lib.types.port;
       default = 1337;
@@ -145,8 +151,11 @@ in
         message = "vpn-control needs the existing homelab-vpn-routing and privacy-guard contract; see README.";
       }
       {
-        assertion = runtimePath cfg.credentialsFile && runtimePath cfg.profileFile;
-        message = "vpn-control credentialsFile/profileFile must be absolute runtime paths outside /nix/store.";
+        assertion =
+          runtimePath cfg.credentialsFile
+          && runtimePath cfg.profileFile
+          && (cfg.mullvadAccountFile == null || runtimePath cfg.mullvadAccountFile);
+        message = "vpn-control credential/profile options must be absolute runtime paths outside /nix/store.";
       }
     ];
 
@@ -243,7 +252,10 @@ in
       environment.VPN_API_CONFIG = apiConfig;
       serviceConfig = {
         ExecStart = "${package}/bin/vpn-control-api --bind 127.0.0.1:${toString cfg.apiPort}";
-        LoadCredential = [ "api-auth.json:${cfg.credentialsFile}" ];
+        LoadCredential = [
+          "api-auth.json:${cfg.credentialsFile}"
+        ]
+        ++ lib.optional (cfg.mullvadAccountFile != null) "mullvad-account:${cfg.mullvadAccountFile}";
         User = "vpn-control-api";
         Group = "vpn-control-api";
         UMask = "0077";

@@ -59,7 +59,7 @@ class ApiTests(unittest.TestCase):
         return self.client.get("/api/v1/" + path, base_url=self.config["publicOrigin"])
 
     def test_unauthenticated_reads_and_writes_never_reach_controller(self):
-        for path in ("status", "devices", "relays", "session"):
+        for path in ("status", "devices", "relays", "session", "account"):
             self.assertEqual(self.get(path).status_code, 401)
         self.assertEqual(self.post("restore", {"targets": "all"}).status_code, 401)
         self.assertEqual(self.calls, [])
@@ -133,6 +133,34 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.get("relays").json["relays"][0]["id"], "configured")
         self.assertEqual(self.post("switch", {"relay": "unapproved"}).status_code, 400)
         self.assertEqual(self.post("switch", {"relay": "configured"}).status_code, 200)
+
+    def test_account_expiry_is_optional_and_authentication_protected(self):
+        self.login()
+        response = self.get("account")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["state"], "notConfigured")
+        self.assertIsNone(response.json["expiry"])
+        self.assertEqual(self.calls, [])
+
+    def test_account_response_explicitly_excludes_credentials(self):
+        app = create_app(
+            config=self.config,
+            credentials=self.credentials,
+            account_lookup=lambda: {
+                "state": "available",
+                "expiry": "2027-01-24T00:00:00Z",
+                "checkedAt": "2026-11-10T00:00:00Z",
+                "stale": False,
+                "account_number": "never-return-this",
+                "access_token": "never-return-token",
+            },
+        )
+        self.client = app.test_client()
+        self.login()
+        data = self.get("account").json
+        self.assertEqual(data["expiry"], "2027-01-24T00:00:00Z")
+        self.assertNotIn("account_number", data)
+        self.assertNotIn("access_token", data)
 
     def test_failures_are_safe_and_not_successes(self):
         self.login()

@@ -24,6 +24,9 @@
           password = pkgs.writeShellScriptBin "vpn-control-password" ''
             exec ${self.packages.${system}.default}/bin/vpn-control-password "$@"
           '';
+          account-credential = pkgs.writeShellScriptBin "vpn-control-account-credential" ''
+            exec ${self.packages.${system}.default}/bin/vpn-control-account-credential "$@"
+          '';
         }
       );
       checks = eachSystem (
@@ -39,11 +42,12 @@
               ./pyproject.toml
               ./vpn_control.py
               ./vpn_api.py
+              ./mullvad_account.py
+              ./test_mullvad_account.py
               ./test_vpn_api.py
               ./test_api_runtime.py
               ./test_vpn_control.py
               ./network_runtime.py
-              ./smoke_olivetin.py
               ./update_catalog.py
             ];
           };
@@ -91,7 +95,6 @@
               conntrack-tools
               util-linux
               procps
-              libargon2
             ];
           };
         }

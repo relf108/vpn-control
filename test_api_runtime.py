@@ -38,7 +38,13 @@ def main():
         listener.bind(("127.0.0.1", 0))
         listener.listen()
         port = listener.getsockname()[1]
-        environment = {**os.environ, "CREDENTIALS_DIRECTORY": directory, "VPN_API_CONFIG": str(config)}
+        control_directory = root / "management-socket-must-not-exist"
+        environment = {
+            **os.environ,
+            "CREDENTIALS_DIRECTORY": directory,
+            "VPN_API_CONFIG": str(config),
+            "XDG_RUNTIME_DIR": str(control_directory),
+        }
         with (root / "server.log").open("w+") as log:
             process = subprocess.Popen(  # noqa: S603 - Nix supplies the installed wrapper; no shell or user commands.
                 [sys.argv[1], "--bind", f"fd://{listener.fileno()}"],
@@ -77,12 +83,16 @@ def main():
                             raise RuntimeError("Installed API did not start.") from None
                         time.sleep(0.05)
                 require(code == 401, "Unauthenticated session must be rejected.")
+                require(not control_directory.exists(), "Unneeded Gunicorn management socket must stay disabled.")
                 code, data, cookie = call("POST", "login", {"username": "operator", "password": "synthetic-password"})
                 require(code == 200 and "HttpOnly" in cookie and "Secure" in cookie, "Secure login failed.")
                 cookie = cookie.split(";", 1)[0]
                 csrf = data["csrfToken"]
                 require(call("POST", "restore", {"targets": "all"}, cookie)[0] == 403, "CSRF guard failed.")
                 require(call("GET", "relays", cookie=cookie)[0] == 200, "Authenticated catalog failed.")
+                code, account, _ = call("GET", "account", cookie=cookie)
+                require(code == 200 and account["state"] == "notConfigured", "Optional account lookup failed.")
+                require(set(account) == {"ok", "state", "expiry", "checkedAt", "stale"}, "Unsafe account response.")
                 require(call("GET", "status", cookie=cookie)[0] == 503, "Missing controller must fail safely.")
                 require(call("POST", "logout", {}, cookie, csrf)[0] == 200, "Logout failed.")
                 require(call("GET", "session", cookie=cookie)[0] == 401, "Logout did not revoke session.")

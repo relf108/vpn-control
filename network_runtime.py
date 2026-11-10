@@ -6,6 +6,9 @@ The fixture contains the existing gateway's firewall and routing scripts, not ke
 No commands run against the host network namespace. No external servers are used.
 """
 
+# Standalone CLI integration test, not a Python package.
+# ruff: noqa: CPY001, INP001, T201
+
 import json
 import os
 import subprocess
@@ -31,9 +34,10 @@ def inside(pid: int, *args: str) -> str:
 class FirewallRunner(vpn.Runner):
     """Expose non-secret firewall diagnostics only in this isolated test."""
 
-    def run(self, *args: str, timeout: int = 15) -> str:
+    def run(self, *args: str, timeout: int = 15, empty_ok: bool = False) -> str:
+        """Report bounded diagnostics only inside the isolated test namespace."""
         try:
-            return super().run(*args, timeout=timeout)
+            return super().run(*args, timeout=timeout, empty_ok=empty_ok)
         except vpn.ControlError as error:
             if args[0] != "iptables" and isinstance(error.__cause__, subprocess.CalledProcessError):
                 print(error.__cause__.stderr, file=sys.stderr)
@@ -86,10 +90,10 @@ udp.serve_forever()
 """
 
 
-def main() -> None:
+def main() -> None:  # noqa: C901, PLR0912, PLR0915 - Preserve the isolated network scenario.
     """Fail before any network changes unless already inside an isolated namespace."""
     if os.geteuid() != 0:
-        environment = dict(os.environ, VPN_CONTROL_HOST_NETNS=os.readlink("/proc/self/ns/net"))
+        environment = dict(os.environ, VPN_CONTROL_HOST_NETNS=str(Path("/proc/self/ns/net").readlink()))
         result = subprocess.run(  # noqa: S603 - Fixed namespace wrapper, no shell.
             ["unshare", "--user", "--map-root-user", "--map-auto", "--net", sys.executable, __file__],  # noqa: S607
             env=environment,
@@ -97,8 +101,9 @@ def main() -> None:
         )
         raise SystemExit(result.returncode)
     host_namespace = os.environ.get("VPN_CONTROL_HOST_NETNS")
-    if not host_namespace or host_namespace == os.readlink("/proc/self/ns/net"):
-        raise SystemExit("Run as an ordinary user; this test creates its own isolated namespace.")
+    if not host_namespace or host_namespace == str(Path("/proc/self/ns/net").readlink()):
+        msg = "Run as an ordinary user; this test creates its own isolated namespace."
+        raise SystemExit(msg)
     fixture = json.loads(Path(os.environ["VPN_GATEWAY_FIXTURE"]).read_text())
     children = []
 
@@ -115,11 +120,12 @@ def main() -> None:
         children.append(process)
         # Wait for this process's new namespace, not a background Shell result.
         for _ in range(100):
-            if os.readlink(f"/proc/{process.pid}/ns/net") != os.readlink("/proc/self/ns/net"):
+            if Path(f"/proc/{process.pid}/ns/net").readlink() != Path("/proc/self/ns/net").readlink():
                 inside(process.pid, "ip", "link", "set", "lo", "up")
                 return process.pid
             time.sleep(0.01)
-        raise RuntimeError("Child namespace did not start")
+        msg = "Child namespace did not start"
+        raise RuntimeError(msg)
 
     def pair(host: str, peer: str, pid: int) -> None:
         run("ip", "link", "add", host, "type", "veth", "peer", "name", peer)
@@ -127,7 +133,7 @@ def main() -> None:
         run("ip", "link", "set", host, "up")
         inside(pid, "ip", "link", "set", peer, "up")
 
-    def check(label: str, condition: bool) -> None:
+    def check(label: str, condition: bool) -> None:  # noqa: FBT001 - Assertion helper.
         if not condition:
             for command in (
                 ("ipset", "save"),
@@ -179,7 +185,7 @@ def main() -> None:
         except subprocess.CalledProcessError:
             return "blocked"
 
-    def dns(pid: int, tcp: bool = False, port: int = 53) -> str:
+    def dns(pid: int, *, tcp: bool = False, port: int = 53) -> str:
         code = """
 import socket
 s = socket.socket(socket.AF_INET, TYPE)
@@ -301,7 +307,8 @@ print(s.recv(8192).decode())
                 if daemon.poll() is not None:
                     raise RuntimeError(daemon.stderr.read().decode())
                 time.sleep(0.02)
-            check("controller socket starts with mode 0660", Path(cfg["socket"]).stat().st_mode & 0o777 == 0o660)
+            socket_mode = 0o660
+            check("controller socket starts with mode 0660", Path(cfg["socket"]).stat().st_mode & 0o777 == socket_mode)
 
             start("PORT=18080\n" + HTTP_SERVER, router)
             start("PORT=18082\n" + HTTP_SERVER)
@@ -368,9 +375,10 @@ print(s.recv(8192).decode())
             try:
                 dns(client, port=5354)
             except subprocess.CalledProcessError:
-                check("expired device cannot directly use bypass DNS", True)
+                bypass_dns_blocked = True
             else:
-                check("expired device cannot directly use bypass DNS", False)
+                bypass_dns_blocked = False
+            check("expired device cannot directly use bypass DNS", bypass_dns_blocked)
             run("ip", "link", "set", "wg-mullvad", "down")
             check("provider failure blocks protected LAN traffic", fetch(client) == "blocked")
             check("provider failure blocks protected home internet", fetch(remote) == "blocked")

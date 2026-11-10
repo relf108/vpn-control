@@ -15,6 +15,7 @@ from argon2.exceptions import InvalidHashError, VerificationError
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import HTTPException
 
+from mullvad_account import AccountExpiryCache
 from vpn_control import ALLOWED_MINUTES, MAX_TARGETS, client
 
 COOKIE = "__Host-vpn-session"
@@ -23,7 +24,7 @@ MAX_SESSIONS = 128
 MAX_RESPONSE = 262144
 
 
-def create_app(*, config=None, credentials=None, backend=None, clock=time.monotonic):
+def create_app(*, config=None, credentials=None, backend=None, account_lookup=None, clock=time.monotonic):
     """Load public configuration and a runtime credential; fail closed if absent.
 
     Run one Gunicorn worker with threads: sessions, rate limits and action
@@ -54,6 +55,11 @@ def create_app(*, config=None, credentials=None, backend=None, clock=time.monoto
     auth_lock = threading.Lock()
     action_lock = threading.Lock()
     backend = backend or (lambda payload: client(config["socket"], payload))
+    account_lookup = account_lookup or AccountExpiryCache(
+        Path(os.environ["CREDENTIALS_DIRECTORY"]) / "mullvad-account"
+        if config.get("mullvadAccountEnabled", False)
+        else None
+    )
 
     def error(message, code):
         return jsonify(ok=False, message=message), code
@@ -182,6 +188,11 @@ def create_app(*, config=None, credentials=None, backend=None, clock=time.monoto
     @app.get("/api/v1/status")
     def status():
         return dispatch({"action": "status"})
+
+    @app.get("/api/v1/account")
+    def account_status():
+        snapshot = account_lookup()
+        return jsonify(ok=True, **{key: snapshot[key] for key in ("state", "expiry", "checkedAt", "stale")})
 
     @app.get("/api/v1/devices")
     def devices():
