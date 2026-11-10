@@ -1,8 +1,9 @@
 [project]
 name = "vpn-control"
-version = "0.1.0"
-description = "Constrained OliveTin controls for a NixOS WireGuard gateway"
+version = "0.2.0"
+description = "Private authenticated API for a NixOS WireGuard gateway"
 requires-python = ">=3.12"
+dependencies = ["Flask>=3.1,<4", "gunicorn>=23,<26", "argon2-cffi>=23,<26"]
 
 [tool.ruff]
 line-length = 120
@@ -10,3 +11,9 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "B", "S", "UP", "RUF"]
+
+# Shared gateway sources retain suppressions for the server's stricter lint set.
+[tool.ruff.lint.per-file-ignores]
+"vpn_control.py" = ["RUF100"]
+"test_vpn_control.py" = ["RUF100"]
+"update_catalog.py" = ["RUF100"]

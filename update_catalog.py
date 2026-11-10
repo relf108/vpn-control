@@ -1,5 +1,8 @@
 """Refresh public Mullvad source data before release, never runtime gateway state."""
 
+# Standalone maintenance command, not a Python package.
+# ruff: noqa: CPY001, INP001, T201
+
 import argparse
 import base64
 import datetime as dt
@@ -9,6 +12,7 @@ import urllib.request
 from pathlib import Path
 
 URL = "https://api.mullvad.net/www/relays/all/"
+KEY_BYTES = 32
 
 
 def catalog(rows: list[dict], retrieved: str) -> dict:
@@ -17,8 +21,9 @@ def catalog(rows: list[dict], retrieved: str) -> dict:
     active = [row for row in rows if row["active"] and row["type"] == "wireguard"]
     for row in sorted(active, key=lambda item: item["hostname"]):
         ipaddress.IPv4Address(row["ipv4_addr_in"])
-        if len(base64.b64decode(row["pubkey"], validate=True)) != 32:
-            raise ValueError("Invalid public relay key")
+        if len(base64.b64decode(row["pubkey"], validate=True)) != KEY_BYTES:
+            msg = "Invalid public relay key"
+            raise ValueError(msg)
         region = "-".join(row["hostname"].split("-")[:2])
         groups.setdefault(
             region,
@@ -29,7 +34,8 @@ def catalog(rows: list[dict], retrieved: str) -> dict:
             },
         )
     if not groups or "au-mel" not in groups:
-        raise ValueError("Missing region catalog or Melbourne relay")
+        msg = "Missing region catalog or Melbourne relay"
+        raise ValueError(msg)
     return {
         "source": URL,
         "retrieved": retrieved,

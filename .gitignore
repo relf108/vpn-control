@@ -7,6 +7,7 @@ result-*
 secrets/
 *.key
 olivetin-users.yaml
+api-auth.json
 *.conf
 *.pem
 *.pcap

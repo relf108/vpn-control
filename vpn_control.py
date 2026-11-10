@@ -1,6 +1,7 @@
 """Constrain portal actions to timed IPv4 bypasses and approved Mullvad relays."""
 
 # Standalone application. No shell commands or user-selected executables.
+# ruff: noqa: CPY001, INP001, T201
 
 import argparse
 import base64
@@ -26,6 +27,11 @@ MAX_TARGETS = 64
 ALLOWED_MINUTES = (5, 15, 30, 60)
 WAN_MARK = "0x51822"
 BYPASS_MARK = "0x51823"
+KEY_BYTES = 32
+IPV4_HOST_PREFIX = 32
+MIN_NETWORK_PREFIX = 24
+MAX_PORT = 65535
+LOGGER = logging.getLogger(__name__)
 
 
 class ControlError(Exception):
@@ -49,17 +55,20 @@ class Runner:
                 empty_ok and result.returncode == 1 and "0 flow entries have been deleted" in result.stderr
             ):
                 raise subprocess.CalledProcessError(result.returncode, args)
-            return result.stdout
         except (OSError, subprocess.SubprocessError) as error:
-            raise ControlError(f"{args[0]} operation failed; non-bypassed traffic remains protected.") from error
+            msg = f"{args[0]} operation failed; non-bypassed traffic remains protected."
+            raise ControlError(msg) from error
+        else:
+            return result.stdout
 
 
 def load_config(path: Path) -> dict:
     """Load immutable configuration and validate its network boundaries."""
     config = json.loads(path.read_text())
     for name in ("lanNetwork", "homeNetwork"):
-        if ipaddress.IPv4Network(config[name]).prefixlen < 24:
-            raise ControlError("Configured client networks must be /24 or smaller.")
+        if ipaddress.IPv4Network(config[name]).prefixlen < MIN_NETWORK_PREFIX:
+            msg = "Configured client networks must be /24 or smaller."
+            raise ControlError(msg)
     for name in ("hostAddress", "homeAddress"):
         ipaddress.IPv4Address(config[name])
     return config
@@ -69,6 +78,7 @@ class Controller:
     """Manage expiring kernel state without changing Nix or persistent VPN files."""
 
     def __init__(self, config: dict, runner: Runner | None = None) -> None:
+        """Bind immutable gateway settings and a bounded command runner."""
         self.config = config
         self.runner = runner or Runner()
         self.networks = [ipaddress.IPv4Network(config[key]) for key in ("lanNetwork", "homeNetwork")]
@@ -109,7 +119,8 @@ class Controller:
             if fields[:2] != ["add", SET_NAME]:
                 continue
             if "timeout" not in fields:
-                raise ControlError("Refusing an unbounded bypass entry.")
+                msg = "Refusing an unbounded bypass entry."
+                raise ControlError(msg)
             seconds = int(fields[fields.index("timeout") + 1])
             if seconds > 0:
                 result[fields[2]] = seconds
@@ -117,22 +128,36 @@ class Controller:
 
     def targets(self, text: str) -> list[str]:
         """Accept exact client IPv4 addresses, never networks or shell expressions."""
-        values = text.split(",")
+        if text.startswith("["):
+            try:
+                values = json.loads(text)
+            except ValueError as error:
+                msg = "Invalid device selection."
+                raise ControlError(msg) from error
+            if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+                msg = "Choose client IPv4 addresses only."
+                raise ControlError(msg)
+        else:
+            values = text.split(",")
         if not 1 <= len(values) <= MAX_TARGETS:
-            raise ControlError("Choose between 1 and 64 client IPv4 addresses.")
+            msg = "Choose between 1 and 64 client IPv4 addresses."
+            raise ControlError(msg)
         result = []
         for value in values:
             try:
                 address = ipaddress.IPv4Address(value.strip())
             except ipaddress.AddressValueError as error:
-                raise ControlError("Use comma-separated client IPv4 addresses only.") from error
+                msg = "Use comma-separated client IPv4 addresses only."
+                raise ControlError(msg) from error
             if not any(
                 address in network and address not in (network.network_address, network.broadcast_address)
                 for network in self.networks
             ):
-                raise ControlError("Client address is outside the configured LAN and home VPN networks.")
+                msg = "Client address is outside the configured LAN and home VPN networks."
+                raise ControlError(msg)
             if str(address) == self.config["homeAddress"]:
-                raise ControlError("Select the gateway's LAN address, not its home VPN address.")
+                msg = "Select the gateway's LAN address, not its home VPN address."
+                raise ControlError(msg)
             result.append(str(address))
         return sorted(set(result))
 
@@ -152,7 +177,8 @@ class Controller:
     def bypass(self, targets: str, minutes: int) -> str:
         """Create bounded bypasses while leaving both tunnels up."""
         if minutes not in ALLOWED_MINUTES:
-            raise ControlError("Duration must be 5, 15, 30, or 60 minutes.")
+            msg = "Duration must be 5, 15, 30, or 60 minutes."
+            raise ControlError(msg)
         observed_at = time.monotonic()
         seconds = minutes * 60
         if targets == "all":
@@ -162,13 +188,17 @@ class Controller:
             addresses = self.targets(targets)
             entries = self.entries()
             if any(str(network) in entries for network in self.networks):
-                raise ControlError("Global bypass is active. Restore all before editing individual devices.")
+                msg = "Global bypass is active. Restore all before editing individual devices."
+                raise ControlError(msg)
             entries.update(dict.fromkeys(addresses, seconds))
             if self.config["hostAddress"] in addresses:
                 entries["127.0.0.1"] = seconds
         self.replace_entries(entries, observed_at)
         self.reconcile_dns()
-        return f"Bypass enabled for {targets}, at most {minutes} minutes. Internet traffic uses the home ISP. Home VPN stays on."
+        return (
+            f"Bypass enabled for {targets}, at most {minutes} minutes. "
+            "Internet traffic uses the home ISP. Home VPN stays on."
+        )
 
     def restore(self, targets: str) -> str:
         """Restore-all also cancels every individual lease."""
@@ -179,7 +209,8 @@ class Controller:
             observed_at = time.monotonic()
             entries = self.entries()
             if any(str(network) in entries for network in self.networks):
-                raise ControlError("Global bypass is active. Use Restore all.")
+                msg = "Global bypass is active. Use Restore all."
+                raise ControlError(msg)
             for address in addresses:
                 entries.pop(address, None)
             if self.config["hostAddress"] in addresses:
@@ -196,21 +227,24 @@ class Controller:
             try:
                 result = {"publicKey": parser["Peer"]["PublicKey"], "endpoint": parser["Peer"]["Endpoint"]}
             except KeyError as error:
-                raise ControlError("Configured Mullvad profile is unavailable.") from error
+                msg = "Configured Mullvad profile is unavailable."
+                raise ControlError(msg) from error
         else:
             try:
                 result = self.config["relays"][name]
             except KeyError as error:
-                raise ControlError("Choose an approved Mullvad relay.") from error
+                msg = "Choose an approved Mullvad relay."
+                raise ControlError(msg) from error
         try:
-            if len(base64.b64decode(result["publicKey"], validate=True)) != 32:
-                raise ValueError
+            if len(base64.b64decode(result["publicKey"], validate=True)) != KEY_BYTES:
+                raise ValueError  # noqa: TRY301 - Convert invalid metadata to one safe error below.
             host, port = result["endpoint"].rsplit(":", 1)
             ipaddress.IPv4Address(host)
-            if not 1 <= int(port) <= 65535:
-                raise ValueError
+            if not 1 <= int(port) <= MAX_PORT:
+                raise ValueError  # noqa: TRY301 - Convert invalid metadata to one safe error below.
         except (ValueError, KeyError) as error:
-            raise ControlError("Relay has an invalid public key or IPv4 endpoint.") from error
+            msg = "Relay has an invalid public key or IPv4 endpoint."
+            raise ControlError(msg) from error
         return result
 
     def sync(self, contents: str) -> None:
@@ -232,7 +266,8 @@ class Controller:
         parser.optionxform = str
         parser.read_string(original)
         if set(parser.sections()) != {"Interface", "Peer"}:
-            raise ControlError("Expected exactly one Mullvad peer; no changes made.")
+            msg = "Expected exactly one Mullvad peer; no changes made."
+            raise ControlError(msg)
         # Preserve interface identity, listener, fwmark, and optional PSK.
         parser["Peer"]["PublicKey"] = relay["publicKey"]
         parser["Peer"]["Endpoint"] = relay["endpoint"]
@@ -267,19 +302,115 @@ class Controller:
                 )
             )
             if response.get("mullvad_exit_ip") is not True:
-                raise ControlError("New relay did not verify as a Mullvad exit.")
+                msg = "New relay did not verify as a Mullvad exit."
+                raise ControlError(msg)  # noqa: TRY301 - Verification failure must run rollback.
             self.runner.run("wg", "set", interface, "peer", relay["publicKey"], "persistent-keepalive", "25")
         except (ControlError, ValueError, KeyError, IndexError, AttributeError, TypeError, OSError) as error:
             try:
                 self.sync(original)
             except (ControlError, OSError):
-                raise ControlError(
-                    "Relay switch and rollback failed. Non-bypassed internet remains fail-closed; check Mullvad locally."
-                ) from error
-            raise ControlError(
+                msg = (
+                    "Relay switch and rollback failed. "
+                    "Non-bypassed internet remains fail-closed; check Mullvad locally."
+                )
+                raise ControlError(msg) from error
+            msg = (
                 "Relay switch failed; previous peer restored. Non-bypassed internet remains fail-closed if unavailable."
-            ) from error
-        return f"Mullvad relay switched to {name}; verified exit {response.get('ip', 'unknown')}. Home VPN was not changed."
+            )
+            raise ControlError(msg) from error
+        return (
+            f"Mullvad relay switched to {name}; verified exit {response.get('ip', 'unknown')}. "
+            "Home VPN was not changed."
+        )
+
+    def lan_candidates(self) -> dict[str, tuple[str, str]]:
+        """Read public neighbour observations without sending network probes."""
+        candidates = {}
+        try:
+            neighbours = json.loads(
+                self.runner.run("ip", "-j", "-4", "neigh", "show", "dev", self.config["lanInterface"])
+            )
+            for neighbour in neighbours:
+                states = neighbour.get("state", [])
+                if neighbour.get("lladdr") and not {"FAILED", "INCOMPLETE"}.intersection(states):
+                    candidates[neighbour.get("dst", "")] = ("LAN", "/".join(states).lower() or "observed")
+        except (ControlError, ValueError, TypeError, AttributeError):
+            pass
+        return candidates
+
+    def home_candidates(self) -> dict[str, tuple[str, str]]:
+        """List configured exact home peer IPs and recent public handshake state."""
+        candidates = {}
+        try:
+            handshakes = {}
+            for line in self.runner.run("wg", "show", self.config["homeInterface"], "latest-handshakes").splitlines():
+                peer, timestamp = line.split()
+                handshakes[peer] = int(timestamp)
+            for line in self.runner.run("wg", "show", self.config["homeInterface"], "allowed-ips").splitlines():
+                peer, allowed = line.split(maxsplit=1)
+                recent = handshakes.get(peer, 0) > time.time() - 180
+                for value in allowed.replace(",", " ").split():
+                    try:
+                        network = ipaddress.IPv4Network(value)
+                    except ValueError:
+                        continue
+                    if network.prefixlen == IPV4_HOST_PREFIX:
+                        candidates[str(network.network_address)] = (
+                            "home VPN",
+                            "recent handshake" if recent else "configured peer",
+                        )
+        except (ControlError, ValueError):
+            pass
+        return candidates
+
+    def device_name(self, address: str, lookup_deadline: float) -> str:
+        """Prefer declarative labels; bound total time spent in hostname lookup."""
+        name = self.config.get("deviceNames", {}).get(address, "")
+        if not name and time.monotonic() < lookup_deadline:
+            try:
+                resolved = self.runner.run("getent", "hosts", address, timeout=1).split()
+                name = resolved[1] if len(resolved) > 1 else ""
+            except ControlError:
+                pass
+        name = "".join(char for char in name[:80] if char.isalnum() or char in " ._-")
+        return name or ("Gateway" if address == self.config["hostAddress"] else "")
+
+    def devices(self) -> list[dict]:
+        """Discover candidates, not trusted identities or guaranteed connectivity.
+
+        Configured home peers and active bypasses remain selectable offline.
+        Hostname lookup is best-effort; discovery never scans client networks.
+        """
+        candidates = self.lan_candidates() | self.home_candidates()
+        candidates[self.config["hostAddress"]] = ("gateway", "local")
+        entries = self.entries()
+        for address in entries:
+            if "/" not in address and address != "127.0.0.1":
+                candidates.setdefault(address, ("bypass", "not recently observed"))
+        devices = []
+        lookup_deadline = time.monotonic() + 3
+        for address, (source, state) in sorted(candidates.items()):
+            try:
+                self.targets(address)
+            except ControlError:
+                continue
+            if source == "LAN" and ipaddress.IPv4Address(address) not in self.networks[0]:
+                continue
+            if source == "home VPN" and ipaddress.IPv4Address(address) not in self.networks[1]:
+                continue
+            name = self.device_name(address, lookup_deadline)
+            seconds = entries.get(address, 0)
+            suffix = f" · bypass ≤{seconds}s" if seconds else ""
+            devices.append(
+                {
+                    "address": address,
+                    "title": f"{name + ' · ' if name else ''}{address} · {source} ({state}){suffix}",
+                    "source": source,
+                    "state": state,
+                    "bypassSeconds": seconds,
+                }
+            )
+        return devices
 
     def status(self) -> str:
         """Report live lifetimes and public peer data, never private credentials."""
@@ -321,7 +452,8 @@ class Controller:
                 )
             )
             lines.append(
-                f"Gateway observed public IPv4: {exit_info.get('ip', 'unknown')}; Mullvad verified: {exit_info.get('mullvad_exit_ip') is True}."
+                f"Gateway observed public IPv4: {exit_info.get('ip', 'unknown')}; "
+                f"Mullvad verified: {exit_info.get('mullvad_exit_ip') is True}."
             )
         except (ControlError, ValueError, AttributeError):
             lines.append("Gateway public-IP check unavailable; this does not enable WAN fallback.")
@@ -335,16 +467,21 @@ class Controller:
         action = request.get("action")
         if action == "status" and set(request) == {"action"}:
             return self.status()
-        if action == "bypass" and set(request) == {"action", "targets", "minutes"}:
-            if isinstance(request["targets"], str) and type(request["minutes"]) is int:
-                return self.bypass(request["targets"], request["minutes"])
-        if action == "restore" and set(request) == {"action", "targets"}:
-            if isinstance(request["targets"], str):
-                return self.restore(request["targets"])
-        if action == "switch" and set(request) == {"action", "relay"}:
-            if isinstance(request["relay"], str):
-                return self.switch(request["relay"])
-        raise ControlError("Unknown or invalid portal action.")
+        if action == "devices" and set(request) == {"action"}:
+            return json.dumps(self.devices())
+        if (
+            action == "bypass"
+            and set(request) == {"action", "targets", "minutes"}
+            and isinstance(request["targets"], str)
+            and type(request["minutes"]) is int
+        ):
+            return self.bypass(request["targets"], request["minutes"])
+        if action == "restore" and set(request) == {"action", "targets"} and isinstance(request["targets"], str):
+            return self.restore(request["targets"])
+        if action == "switch" and set(request) == {"action", "relay"} and isinstance(request["relay"], str):
+            return self.switch(request["relay"])
+        msg = "Unknown or invalid portal action."
+        raise ControlError(msg)
 
 
 def firewall_rules(config: dict) -> list[tuple[str, str, list[str]]]:
@@ -564,7 +701,8 @@ def install_firewall(config: dict, runner: Runner) -> None:
     priority = str(config["rulePriority"])
     existing = [line for line in runner.run("ip", "-4", "rule", "show").splitlines() if line.startswith(priority + ":")]
     if existing and (len(existing) != 1 or f"fwmark {BYPASS_MARK} lookup main" not in existing[0]):
-        raise ControlError("Bypass routing priority is occupied by another policy.")
+        msg = "Bypass routing priority is occupied by another policy."
+        raise ControlError(msg)
     if not existing:
         runner.run("ip", "-4", "rule", "add", "priority", priority, "fwmark", BYPASS_MARK, "table", "main")
 
@@ -579,9 +717,7 @@ def serve(config: dict) -> None:
             try:
                 controller.reconcile_dns()
             except ControlError:
-                logging.warning(
-                    "DNS NAT housekeeping failed; kernel bypass expiry and DNS access checks remain active."
-                )
+                LOGGER.warning("DNS NAT housekeeping failed; kernel bypass expiry and DNS access checks remain active.")
 
     class Handler(socketserver.StreamRequestHandler):
         def handle(self) -> None:
@@ -589,10 +725,12 @@ def serve(config: dict) -> None:
             try:
                 data = self.rfile.readline(MAX_MESSAGE + 1)
                 if len(data) > MAX_MESSAGE or not data.endswith(b"\n"):
-                    raise ControlError("Request too large or incomplete.")
+                    msg = "Request too large or incomplete."
+                    raise ControlError(msg)  # noqa: TRY301 - Protocol errors share the safe response below.
                 request = json.loads(data)
                 if not isinstance(request, dict):
-                    raise ControlError("Expected an action object.")
+                    msg = "Expected an action object."
+                    raise ControlError(msg)  # noqa: TRY301 - Protocol errors share the safe response below.
                 response = {"ok": True, "message": controller.dispatch(request)}
             except ControlError as error:
                 response = {"ok": False, "message": str(error)}
@@ -618,7 +756,7 @@ def client(path: str, request: dict) -> dict:
         connection.connect(path)
         connection.sendall(json.dumps(request).encode() + b"\n")
         with connection.makefile("rb") as stream:
-            return json.loads(stream.readline(65536))
+            return json.loads(stream.readline(262144))
 
 
 def main() -> None:
@@ -627,7 +765,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=Path("/etc/vpn-control.json"))
     parser.add_argument("--socket", default="/run/vpn-control/control.sock")
     sub = parser.add_subparsers(dest="action", required=True)
-    for action in ("serve", "install-firewall", "status"):
+    for action in ("serve", "install-firewall", "status", "devices"):
         sub.add_parser(action)
     bypass_parser = sub.add_parser("bypass")
     bypass_parser.add_argument("targets")

@@ -1,5 +1,5 @@
 {
-  description = "Private OliveTin controls for an existing NixOS WireGuard VPN gateway";
+  description = "Private authenticated API for an existing NixOS WireGuard VPN gateway";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -21,6 +21,9 @@
         in
         {
           default = import ./default.nix { inherit pkgs; };
+          password = pkgs.writeShellScriptBin "vpn-control-password" ''
+            exec ${self.packages.${system}.default}/bin/vpn-control-password "$@"
+          '';
         }
       );
       checks = eachSystem (
@@ -35,6 +38,9 @@
               ./module.nix
               ./pyproject.toml
               ./vpn_control.py
+              ./vpn_api.py
+              ./test_vpn_api.py
+              ./test_api_runtime.py
               ./test_vpn_control.py
               ./network_runtime.py
               ./smoke_olivetin.py
@@ -70,6 +76,11 @@
           default = pkgs.mkShell {
             packages = with pkgs; [
               python3
+              (python3.withPackages (ps: [
+                ps.flask
+                ps.gunicorn
+                ps.argon2-cffi
+              ]))
               ruff
               nixfmt
               iptables
@@ -81,7 +92,6 @@
               util-linux
               procps
               libargon2
-              olivetin-3k
             ];
           };
         }

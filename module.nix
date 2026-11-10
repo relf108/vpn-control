@@ -20,10 +20,17 @@ let
         hostAddress
         homeAddress
         relays
+        deviceNames
         ;
-      profile = "/var/lib/wireguard/${cfg.mullvadInterface}.conf";
+      profile = cfg.profileFile;
       rulePriority = 10903;
       runtimeDirectory = runtime;
+      socket = "${runtime}/control.sock";
+    }
+  );
+  apiConfig = pkgs.writeText "vpn-control-api.json" (
+    builtins.toJSON {
+      inherit (cfg) publicOrigin configuredRelayTitle relays;
       socket = "${runtime}/control.sock";
     }
   );
@@ -43,40 +50,11 @@ let
       dhcp.enabled = false;
     }
   );
-  duration = {
-    name = "minutes";
-    title = "Duration";
-    rejectNull = true;
-    default = "15";
-    choices =
-      map
-        (n: {
-          title = "${toString n} minutes";
-          value = toString n;
-        })
-        [
-          5
-          15
-          30
-          60
-        ];
-  };
-  addresses = {
-    name = "targets";
-    title = "IPv4 addresses, separated by commas (use reserved DHCP addresses)";
-    type = "regex:[0-9.]+(,[0-9.]+)*";
-    rejectNull = true;
-  };
-  action = id: title: args: arguments: {
-    inherit id title arguments;
-    exec = [ command ] ++ args;
-    timeout = 75;
-    maxConcurrent = 1;
-  };
+  runtimePath = path: lib.hasPrefix "/" path && !lib.hasPrefix "/nix/store/" path;
 in
 {
   options.services.homelab-vpn-control = {
-    enable = lib.mkEnableOption "private OliveTin controls for the homelab VPN gateway";
+    enable = lib.mkEnableOption "private API controls for the homelab VPN gateway";
     lanInterface = lib.mkOption {
       type = lib.types.str;
       default = "enp2s0";
@@ -105,15 +83,32 @@ in
       type = lib.types.str;
       default = "10.77.0.1";
     };
+    profileFile = lib.mkOption {
+      type = lib.types.str;
+      default = "/var/lib/wireguard/${cfg.mullvadInterface}.conf";
+      description = "Absolute runtime path to the existing private outbound profile; never read during evaluation.";
+    };
     credentialsFile = lib.mkOption {
       type = lib.types.str;
-      default = "/var/lib/vpn-control/olivetin-users.yaml";
-      description = "Root-owned runtime YAML containing OliveTin Argon2id users; never a Nix store path.";
+      default = "/var/lib/vpn-control/api-auth.json";
+      description = "Absolute runtime path to root-owned JSON with username and passwordHash (Argon2id). Passed through systemd LoadCredential, never imported into Nix.";
+    };
+    apiPort = lib.mkOption {
+      type = lib.types.port;
+      default = 1337;
+    };
+    publicOrigin = lib.mkOption {
+      type = lib.types.str;
+      default = "https://${cfg.hostAddress}:8443";
+      description = "Exact HTTPS origin serving the frontend and /api; required on all POST requests.";
     };
     configuredRelayTitle = lib.mkOption {
       type = lib.types.str;
       default = "Original configured server";
-      description = "Label for the existing peer; enabling the portal never changes that default.";
+    };
+    deviceNames = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      default = { };
     };
     relays = lib.mkOption {
       type = lib.types.attrsOf (
@@ -131,7 +126,7 @@ in
         )
       );
       default = (builtins.fromJSON (builtins.readFile ./regions.json)).regions;
-      description = "Approved relay public keys and literal IPv4:port endpoints. The original configured relay is always available.";
+      description = "Reviewed public relay catalog. No account tokens or private keys.";
     };
   };
 
@@ -147,7 +142,11 @@ in
       }
       {
         assertion = config.systemd.services ? homelab-vpn-routing;
-        message = "vpn-control needs the existing homelab-vpn-routing service and privacy-guard contract; see README.";
+        message = "vpn-control needs the existing homelab-vpn-routing and privacy-guard contract; see README.";
+      }
+      {
+        assertion = runtimePath cfg.credentialsFile && runtimePath cfg.profileFile;
+        message = "vpn-control credentialsFile/profileFile must be absolute runtime paths outside /nix/store.";
       }
     ];
 
@@ -167,8 +166,6 @@ in
           chmod u+w bypass-dns.yaml
           mkdir -p "$TMPDIR/dns-check"
           AdGuardHome --work-dir "$TMPDIR/dns-check" --config "$PWD/bypass-dns.yaml" --check-config
-          # Validate the real routes/TLS policy, redirecting only filesystem logs to
-          # the build sandbox. Never write production logs or CA state during checks.
           sed "s|/var/log/caddy/|$TMPDIR/|g" ${config.services.caddy.configFile} > Caddyfile
           caddy validate --adapter caddyfile --config "$PWD/Caddyfile"
           mkdir "$out"
@@ -180,36 +177,35 @@ in
       "xt_set"
       "xt_owner"
     ];
-    # Kernel rp_filter must honor the same marks as NixOS's --validmark check.
     boot.kernel.sysctl."net.ipv4.conf.all.src_valid_mark" = 1;
 
     users.groups.vpn-control = { };
+    users.groups.vpn-control-api = { };
+    users.users.vpn-control-api = {
+      isSystemUser = true;
+      group = "vpn-control-api";
+      extraGroups = [ "vpn-control" ];
+    };
     users.groups.vpn-bypass-dns = { };
     users.users.vpn-bypass-dns = {
       isSystemUser = true;
       group = "vpn-bypass-dns";
     };
-    # Preallocate the normally dynamic user so owner-based DNS isolation has a
-    # stable UID before firewall.service starts. DynamicUser can use static users.
+    # Stable UID before firewall.service starts: owner-based DNS isolation.
     users.groups.adguardhome = { };
     users.users.adguardhome = {
       isSystemUser = true;
       group = "adguardhome";
     };
     systemd.services.adguardhome.serviceConfig.User = "adguardhome";
-
     systemd.tmpfiles.rules = [ "d /var/lib/vpn-control 0700 root root -" ];
 
     networking.firewall.extraCommands = lib.mkAfter ''
       ${command} --config ${controllerConfig} install-firewall
     '';
-    # Never remove these hooks in extraStopCommands. Without explicit timed set
-    # membership the old privacy guards still reject direct forwarding.
-    networking.firewall.interfaces.${cfg.lanInterface}.allowedTCPPorts = [ 8443 ];
-    networking.firewall.interfaces.${cfg.homeInterface}.allowedTCPPorts = [ 8443 ];
-
+    # Never remove these hooks on stop. Kernel expiry enforces fail-closed policy.
     systemd.services.vpn-control = {
-      description = "Constrained VPN portal controller (kernel-enforced bypass expiry)";
+      description = "Constrained VPN controller (kernel-enforced bypass expiry)";
       wantedBy = [ "multi-user.target" ];
       requires = [ "homelab-vpn-routing.service" ];
       after = [ "homelab-vpn-routing.service" ];
@@ -236,10 +232,41 @@ in
           "AF_INET"
           "AF_INET6"
         ];
-        ReadOnlyPaths = [ "/var/lib/wireguard" ];
+        ReadOnlyPaths = [ cfg.profileFile ];
       };
     };
-
+    systemd.services.vpn-control-api = {
+      description = "Private authenticated VPN HTTP API";
+      wantedBy = [ "multi-user.target" ];
+      requires = [ "vpn-control.service" ];
+      after = [ "vpn-control.service" ];
+      environment.VPN_API_CONFIG = apiConfig;
+      serviceConfig = {
+        ExecStart = "${package}/bin/vpn-control-api --bind 127.0.0.1:${toString cfg.apiPort}";
+        LoadCredential = [ "api-auth.json:${cfg.credentialsFile}" ];
+        User = "vpn-control-api";
+        Group = "vpn-control-api";
+        UMask = "0077";
+        Restart = "on-failure";
+        CapabilityBoundingSet = [ ];
+        NoNewPrivileges = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictAddressFamilies = [
+          "AF_UNIX"
+          "AF_INET"
+        ];
+        InaccessiblePaths = [
+          "/var/lib/wireguard"
+          cfg.profileFile
+        ];
+      };
+    };
     systemd.services.vpn-bypass-dns = {
       description = "AdGuard DNS for explicitly bypassed clients only";
       wantedBy = [ "multi-user.target" ];
@@ -276,122 +303,5 @@ in
         ];
       };
     };
-
-    services.olivetin = {
-      enable = true;
-      # stateVersion 23.11 otherwise selects the vulnerable legacy package.
-      package = pkgs.olivetin-3k;
-      extraConfigFiles = [ cfg.credentialsFile ];
-      settings = {
-        ListenAddressSingleHTTPFrontend = "127.0.0.1:1337";
-        authRequireGuestsToLogin = true;
-        authLocalUsers.enabled = true;
-        defaultPermissions = {
-          view = false;
-          exec = false;
-          logs = false;
-          kill = false;
-        };
-        defaultPolicy = {
-          showDiagnostics = false;
-          showLogList = false;
-          showVersionNumber = false;
-        };
-        accessControlLists = [
-          {
-            name = "vpn-operators";
-            matchUsergroups = [ "vpn-operators" ];
-            addToEveryAction = true;
-            permissions = {
-              view = true;
-              exec = true;
-              logs = true;
-              kill = false;
-            };
-          }
-        ];
-        actions = [
-          (action "bypass-all" "Bypass ALL devices — uses home ISP"
-            [ "bypass" "all" "{{ .Arguments.minutes }}" ]
-            [ duration ]
-          )
-          (action "bypass-selected" "Bypass selected devices — uses home ISP"
-            [ "bypass" "{{ .Arguments.targets }}" "{{ .Arguments.minutes }}" ]
-            [ addresses duration ]
-          )
-          (action "restore-all" "Restore protection for ALL devices" [ "restore" "all" ] [ ])
-          (action "restore-selected" "Restore protection for selected devices"
-            [ "restore" "{{ .Arguments.targets }}" ]
-            [ addresses ]
-          )
-          (action "switch-relay" "Change Mullvad server"
-            [ "switch" "{{ .Arguments.relay }}" ]
-            [
-              {
-                name = "relay";
-                title = "Approved server (connection resets return to configured default)";
-                rejectNull = true;
-                default = "configured";
-                choices = [
-                  {
-                    title = cfg.configuredRelayTitle;
-                    value = "configured";
-                  }
-                ]
-                ++ lib.sort (a: b: a.title < b.title) (
-                  lib.mapAttrsToList (name: relay: {
-                    title = relay.label;
-                    value = name;
-                  }) cfg.relays
-                );
-              }
-            ]
-          )
-          (
-            (action "vpn-status" "Refresh VPN status" [ "status" ] [ ])
-            // {
-              execOnStartup = true;
-              execOnCron = [ "* * * * *" ];
-            }
-          )
-        ];
-        dashboards = [
-          {
-            title = "Home VPN gateway";
-            acls = [ "vpn-operators" ];
-            contents = [
-              {
-                type = "display";
-                title = "Bypass exposes selected internet traffic to your home ISP. Home VPN stays on. IPv6 stays blocked. Global bypass replaces all individual timers.";
-              }
-              { title = "Bypass ALL devices — uses home ISP"; }
-              { title = "Bypass selected devices — uses home ISP"; }
-              { title = "Restore protection for ALL devices"; }
-              { title = "Restore protection for selected devices"; }
-              { title = "Change Mullvad server"; }
-              { title = "Refresh VPN status"; }
-              {
-                type = "stdout-most-recent-execution";
-                title = "vpn-status";
-              }
-            ];
-          }
-        ];
-      };
-    };
-    systemd.services.olivetin = {
-      requires = [ "vpn-control.service" ];
-      after = [ "vpn-control.service" ];
-      serviceConfig.SupplementaryGroups = [ "vpn-control" ];
-    };
-
-    services.caddy.enable = true;
-    services.caddy.virtualHosts."https://${cfg.hostAddress}:8443".extraConfig = ''
-      bind ${cfg.hostAddress}
-      tls internal
-      @outside not remote_ip ${cfg.lanNetwork} ${cfg.homeNetwork}
-      respond @outside 403
-      reverse_proxy 127.0.0.1:1337
-    '';
   };
 }

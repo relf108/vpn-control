@@ -1,16 +1,25 @@
 """Rootless controller tests: expiry, scope isolation, rollback, and command safety."""
 
+# Standard-library unittest fixtures, matching the host test suite.
+# ruff: noqa: CPY001, INP001, PT009, PT027
+
 import base64
 import json
 import stat
+import sys
 import tempfile
 import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import update_catalog
-import vpn_control as vpn
+SCRIPTS = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPTS))
+import update_catalog  # noqa: E402
+import vpn_control as vpn  # noqa: E402
+
+PRIVATE_FILE_MODE = 0o600
+BYPASS_TEST_SECONDS = 300
 
 
 def configuration(root: Path) -> dict:
@@ -35,6 +44,7 @@ class FakeRunner:
     """Model ipset swaps and sensitive WireGuard files without privileged commands."""
 
     def __init__(self) -> None:
+        """Initialize the simulated kernel sets and private WireGuard profile."""
         self.calls = []
         self.sets = {vpn.SET_NAME: {}}
         self.snapshots = []
@@ -48,7 +58,7 @@ class FakeRunner:
             + "\nEndpoint = 192.0.2.2:51820\nAllowedIPs = 0.0.0.0/0\n"
         )
 
-    def run(self, *args: str, timeout: int = 15, empty_ok: bool = False) -> str:
+    def run(self, *args: str, timeout: int = 15, empty_ok: bool = False) -> str:  # noqa: ARG002, C901 - Runner-compatible fake.
         """Record argv and implement only operations used by these tests."""
         self.calls.append(args)
         if args[:2] == ("ipset", "save"):
@@ -59,7 +69,8 @@ class FakeRunner:
             self.sets[args[2]] = {}
         if args[:2] == ("ipset", "add"):
             if self.fail_add:
-                raise vpn.ControlError("Synthetic ipset failure")
+                msg = "Synthetic ipset failure"
+                raise vpn.ControlError(msg)
             self.sets[args[2]][args[3]] = int(args[5])
         if args[:2] == ("ipset", "swap"):
             self.sets[args[2]], self.sets[args[3]] = self.sets[args[3]], self.sets[args[2]]
@@ -69,8 +80,9 @@ class FakeRunner:
             return self.original
         if args[:2] == ("wg", "syncconf"):
             path = Path(args[3])
-            if stat.S_IMODE(path.stat().st_mode) != 0o600:
-                raise AssertionError("Snapshot must be private")
+            if stat.S_IMODE(path.stat().st_mode) != PRIVATE_FILE_MODE:
+                msg = "Snapshot must be private"
+                raise AssertionError(msg)
             self.snapshots.append(path.read_text())
         if args[:3] == ("ip", "-j", "-4"):
             return '[{"addr_info":[{"local":"10.64.1.2"}]}]'
@@ -96,8 +108,108 @@ class ControllerTests(unittest.TestCase):
         self.controller.bypass("192.168.0.50,10.77.0.2", 5)
         entries = self.runner.sets[vpn.SET_NAME]
         self.assertEqual(set(entries), {"192.168.0.50", "10.77.0.2"})
-        self.assertTrue(all(0 < value <= 300 for value in entries.values()))
+        self.assertTrue(all(0 < value <= BYPASS_TEST_SECONDS for value in entries.values()))
         self.assertFalse(any("wg-home" in args for args in self.runner.calls))
+
+    def test_checklist_bypass_and_restore_use_same_scoping_rules(self) -> None:
+        """The portal's JSON array transport cannot broaden a client's scope."""
+        self.controller.bypass('["192.168.0.50", "10.77.0.2"]', 5)
+        self.assertEqual(set(self.runner.sets[vpn.SET_NAME]), {"192.168.0.50", "10.77.0.2"})
+        self.controller.restore('["10.77.0.2"]')
+        self.assertEqual(set(self.runner.sets[vpn.SET_NAME]), {"192.168.0.50"})
+
+    def test_invalid_checklists_never_change_policy(self) -> None:
+        """Malformed arrays, empty lists, and networks are not privileged targets."""
+        for value in (
+            "[]",
+            "[",
+            "[null]",
+            "[3]",
+            "[[]]",
+            '["all"]',
+            '["192.168.0.0/24"]',
+            '["192.168.0.50;id"]',
+            '["1.1.1.1"]',
+            json.dumps(["192.168.0.50"] * 65),
+        ):
+            with self.subTest(value=value), self.assertRaises(vpn.ControlError):
+                self.controller.bypass(value, 5)
+        self.assertEqual(self.runner.calls, [])
+
+    def device_runner(self, *args: str, **kwargs: int | bool) -> str:
+        """Supply only public observations; no private WireGuard configuration."""
+        if args[:4] == ("ip", "-j", "-4", "neigh"):
+            return json.dumps(
+                [
+                    {"dst": "192.168.0.50", "lladdr": "aa:bb:cc:dd:ee:ff", "state": ["REACHABLE"]},
+                    {"dst": "192.168.0.51", "lladdr": "aa:bb:cc:dd:ee:01", "state": ["STALE"]},
+                    {"dst": "192.168.0.52", "state": ["INCOMPLETE"]},
+                    {"dst": "192.168.0.53", "lladdr": "aa:bb:cc:dd:ee:02", "state": ["FAILED"]},
+                    {"dst": "1.1.1.1", "lladdr": "aa:bb:cc:dd:ee:03", "state": ["REACHABLE"]},
+                    {"dst": "10.77.0.99", "lladdr": "aa:bb:cc:dd:ee:04", "state": ["REACHABLE"]},
+                ]
+            )
+        if args == ("wg", "show", "wg-home", "latest-handshakes"):
+            return f"recent\t{int(time.time())}\nold\t0\n"
+        if args == ("wg", "show", "wg-home", "allowed-ips"):
+            return "recent\t10.77.0.2/32\nold\t10.77.0.3/32,192.168.99.0/24,1.1.1.1/32,::/0\n"
+        if args[:2] == ("getent", "hosts"):
+            return f"{args[2]}\tsynthetic.local\n"
+        return self.runner.run(*args, **kwargs)
+
+    def test_device_discovery_filters_scope_and_unresolved_neighbours(self) -> None:
+        """Discovery uses the LAN interface and exact home peer IPs, never scans."""
+        with patch.object(self.controller, "runner") as runner:
+            runner.run.side_effect = self.device_runner
+            devices = self.controller.devices()
+            commands = [call.args for call in runner.run.call_args_list]
+        by_ip = {device["address"]: device for device in devices}
+        self.assertEqual(set(by_ip), {"192.168.0.100", "192.168.0.50", "192.168.0.51", "10.77.0.2", "10.77.0.3"})
+        self.assertEqual(by_ip["10.77.0.2"]["state"], "recent handshake")
+        self.assertEqual(by_ip["10.77.0.3"]["state"], "configured peer")
+        self.assertEqual(by_ip["192.168.0.51"]["state"], "stale")
+        self.assertIn("synthetic.local", by_ip["192.168.0.50"]["title"])
+        self.assertIn(("ip", "-j", "-4", "neigh", "show", "dev", "enp2s0"), commands)
+        self.assertFalse(any("showconf" in command or "dump" in command for command in commands))
+
+    def test_discovery_keeps_offline_bypasses_and_declarative_names(self) -> None:
+        """An offline client remains selectable for restore without stale identity claims."""
+        self.runner.sets[vpn.SET_NAME] = {"192.168.0.70": 120, "127.0.0.1": 120}
+        self.config["deviceNames"] = {"192.168.0.70": "Living room"}
+        with patch.object(self.controller, "runner") as runner:
+            runner.run.side_effect = self.device_runner
+            devices = self.controller.devices()
+        device = next(device for device in devices if device["address"] == "192.168.0.70")
+        self.assertIn("Living room", device["title"])
+        self.assertEqual(device["bypassSeconds"], 120)
+        self.assertEqual(device["state"], "not recently observed")
+        self.assertNotIn("127.0.0.1", {device["address"] for device in devices})
+
+    def test_discovery_survives_missing_interfaces_and_name_service(self) -> None:
+        """Unavailable discovery sources do not erase active restores or enable bypass."""
+        self.runner.sets[vpn.SET_NAME] = {"192.168.0.70": 120}
+
+        def unavailable(*args: str, **kwargs: int | bool) -> str:
+            if args[0] in ("ip", "wg", "getent"):
+                msg = "Unavailable"
+                raise vpn.ControlError(msg)
+            return self.runner.run(*args, **kwargs)
+
+        with patch.object(self.controller, "runner") as runner:
+            runner.run.side_effect = unavailable
+            devices = self.controller.devices()
+        self.assertEqual({device["address"] for device in devices}, {"192.168.0.100", "192.168.0.70"})
+        self.assertEqual(self.runner.sets[vpn.SET_NAME], {"192.168.0.70": 120})
+
+    def test_discovery_protocol_is_read_only_and_returns_structured_json(self) -> None:
+        """Other frontends can consume public device metadata over the same socket."""
+        with patch.object(self.controller, "runner") as runner:
+            runner.run.side_effect = self.device_runner
+            devices = json.loads(self.controller.dispatch({"action": "devices"}))
+        self.assertTrue(all(isinstance(device["address"], str) for device in devices))
+        self.assertEqual(self.runner.sets[vpn.SET_NAME], {})
+        with self.assertRaises(vpn.ControlError):
+            self.controller.dispatch({"action": "devices", "command": "id"})
 
     def test_global_bypass_replaces_individual_leases(self) -> None:
         """Global expiry never silently falls back to an older per-client lease."""
@@ -225,7 +337,7 @@ class ControllerTests(unittest.TestCase):
 
     def test_catalog_covers_all_snapshot_regions_with_valid_public_data(self) -> None:
         """Every versioned region is a valid selectable relay, including Melbourne."""
-        catalog = json.loads(Path(__file__).with_name("regions.json").read_text())
+        catalog = json.loads((SCRIPTS / "regions.json").read_text())
         self.assertEqual(catalog["regionCount"], len(catalog["regions"]))
         self.assertIn("au-mel", catalog["regions"])
         self.assertIn("Australia / Melbourne", catalog["regions"]["au-mel"]["label"])
